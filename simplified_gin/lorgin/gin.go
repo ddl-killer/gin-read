@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-type HandlerFunc func(http.ResponseWriter, *http.Request)
+type HandlerFunc func(c *Context)
 
 type Engine struct {
 	router map[string]HandlerFunc
@@ -25,8 +25,9 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	path := r.URL.Path
 	key := generateRouterKey(method, path)
+	c := newContext(w, r)
 	if h := e.router[key]; h != nil {
-		h(w, r)
+		h(c)
 	} else {
 		fmt.Fprintf(w, "404 NOT FOUND: %s\n", r.URL)
 	}
