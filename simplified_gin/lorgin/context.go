@@ -29,7 +29,7 @@ func (c *Context) Status(code int) {
 
 func (c *Context) String(code int, format string, values ...any) {
 	c.Status(code)
-	c.w.Write([]byte(fmt.Sprintf(format, values)))
+	c.w.Write([]byte(fmt.Sprintf(format, values...)))
 }
 
 func (c *Context) Next() {

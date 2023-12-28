@@ -12,12 +12,15 @@ func main() {
 	emailGroup := e.Group("email")
 	{
 		emailGroup.GET("/narvar", func(c *lorgin.Context) {
-			c.String(200, "403 %s", "narvar")
+			c.String(403, "403")
 		})
 		emailGroup.GET("/shopify", func(c *lorgin.Context) {
-			c.String(200, "200 %s", "shopify")
+			c.String(200, "200")
 		})
 	}
+	e.GET("/panic", func(c *lorgin.Context) {
+		panic("panic")
+	})
 	if err := e.Run(); err != nil {
 		panic(err.Error())
 	}

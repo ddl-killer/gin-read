@@ -15,7 +15,9 @@ type Engine struct {
 }
 
 func Default() *Engine {
-	return New()
+	engine := New()
+	engine.Use(Logger(), Recovery())
+	return engine
 }
 
 func New() *Engine {
