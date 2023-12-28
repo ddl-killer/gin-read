@@ -7,8 +7,11 @@ import (
 
 type HandlerFunc func(c *Context)
 
+type HandlersChain []HandlerFunc
+
 type Engine struct {
-	router map[string]HandlerFunc
+	RouterGroup
+	trees methodTrees
 }
 
 func Default() *Engine {
@@ -16,42 +19,59 @@ func Default() *Engine {
 }
 
 func New() *Engine {
-	return &Engine{
-		router: make(map[string]HandlerFunc),
+	engine := &Engine{
+		RouterGroup: RouterGroup{
+			Handlers: nil,
+			basePath: "/",
+			root:     true,
+		},
+		trees: make(methodTrees, 0, 9),
 	}
+	engine.RouterGroup.engine = engine
+	return engine
+}
+
+func (e *Engine) addRoute(httpMethod, path string, handlers HandlersChain) {
+	root := e.trees.get(httpMethod)
+	if root == nil {
+		root = new(node)
+		root.fullPath = "/"
+		e.trees = append(e.trees, methodTree{
+			method: httpMethod,
+			root:   root,
+		})
+	}
+	root.addRoute(path, handlers)
+}
+
+func (e *Engine) Use(middleware ...HandlerFunc) IRoutes {
+	e.RouterGroup.Use(middleware...)
+	return e
 }
 
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	method := r.Method
-	path := r.URL.Path
-	key := generateRouterKey(method, path)
 	c := newContext(w, r)
-	if h := e.router[key]; h != nil {
-		h(c)
-	} else {
-		fmt.Fprintf(w, "404 NOT FOUND: %s\n", r.URL)
+	e.handleHTTPRequest(c)
+}
+
+func (e *Engine) handleHTTPRequest(c *Context) {
+	httpMethod := c.Request.Method
+	rPath := c.Request.URL.Path
+	t := e.trees
+	for i, tl := 0, len(t); i < tl; i++ {
+		if t[i].method != httpMethod {
+			continue
+		}
+		root := t[i].root
+		value := root.getValue(rPath)
+		if value.handlers != nil {
+			c.handlers = value.handlers
+			c.fullPath = value.fullPath
+			c.Next()
+			return
+		}
 	}
-}
-
-func (e *Engine) Handle(method string, relativePath string, handler HandlerFunc) {
-	key := generateRouterKey(method, relativePath)
-	if _, ok := e.router[key]; ok {
-		panic("already have")
-	} else {
-		e.router[key] = handler
-	}
-}
-
-func generateRouterKey(method string, relativePath string) string {
-	return fmt.Sprintf("%s-%s", method, relativePath)
-}
-
-func (e *Engine) GET(relativePath string, handler HandlerFunc) {
-	e.Handle("GET", relativePath, handler)
-}
-
-func (e *Engine) POST(relativePath string, handler HandlerFunc) {
-	e.Handle("POST", relativePath, handler)
+	c.String(404, "404 NOT FOUND: %s\n", c.Request.URL)
 }
 
 func (e *Engine) Run(addr ...string) error {
