@@ -25,6 +25,15 @@ func newContext(w http.ResponseWriter, r *http.Request) *Context {
 	}
 }
 
+func (c *Context) reset(w http.ResponseWriter, r *http.Request) {
+	c.w = w
+	c.Request = r
+	c.index = -1
+	c.fullPath = ""
+	c.handlers = nil
+	c.Keys = nil
+}
+
 func (c *Context) Status(code int) {
 	c.StatusCode = code
 	c.w.WriteHeader(code)

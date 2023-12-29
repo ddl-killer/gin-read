@@ -3,6 +3,7 @@ package lorgin
 import (
 	"fmt"
 	"net/http"
+	"sync"
 )
 
 type HandlerFunc func(c *Context)
@@ -12,6 +13,7 @@ type HandlersChain []HandlerFunc
 type Engine struct {
 	RouterGroup
 	trees methodTrees
+	pool  sync.Pool
 }
 
 func Default() *Engine {
@@ -30,6 +32,9 @@ func New() *Engine {
 		trees: make(methodTrees, 0, 9),
 	}
 	engine.RouterGroup.engine = engine
+	engine.pool.New = func() any {
+		return &Context{}
+	}
 	return engine
 }
 
@@ -52,8 +57,10 @@ func (e *Engine) Use(middleware ...HandlerFunc) IRoutes {
 }
 
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	c := newContext(w, r)
+	c := e.pool.Get().(*Context)
+	c.reset(w, r)
 	e.handleHTTPRequest(c)
+	e.pool.Put(c)
 }
 
 func (e *Engine) handleHTTPRequest(c *Context) {
