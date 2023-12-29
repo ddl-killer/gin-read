@@ -3,6 +3,7 @@ package lorgin
 import (
 	"fmt"
 	"net/http"
+	"sync"
 )
 
 type Context struct {
@@ -12,6 +13,8 @@ type Context struct {
 	handlers   HandlersChain
 	index      int
 	fullPath   string
+	mu         sync.RWMutex
+	Keys       map[string]any
 }
 
 func newContext(w http.ResponseWriter, r *http.Request) *Context {
@@ -38,4 +41,20 @@ func (c *Context) Next() {
 		c.handlers[c.index](c)
 		c.index++
 	}
+}
+
+func (c *Context) Get(key string) (value any, exist bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	value, exist = c.Keys[key]
+	return
+}
+
+func (c *Context) Set(key string, value any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.Keys == nil {
+		return
+	}
+	c.Keys[key] = value
 }
